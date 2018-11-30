@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: org.alluxio:alluxio-core-protobuf:1.7.1">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/alluxio/alluxio-core-protobuf/1.7.1/alluxio-core-protobuf-1.7.1.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/org/alluxio/alluxio-core-protobuf/1.7.1/alluxio-core-protobuf-1.7.1-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/alluxio/alluxio-core-protobuf/1.7.1/alluxio-core-protobuf-1.7.1-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
