@@ -5,7 +5,6 @@ import com.epri.dlsc.sbs.calc.DataSet.{DataSet, Field, PersistTable, ScriptParam
 import com.epri.dlsc.sbs.calc.dao.Dao
 
 import scala.collection.mutable
-import scala.collection.immutable
 
 
 object Configuration {

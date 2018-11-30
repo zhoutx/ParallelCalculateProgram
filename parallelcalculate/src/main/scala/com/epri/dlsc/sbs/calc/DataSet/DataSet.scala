@@ -73,21 +73,3 @@ object Field {
     isConstraint: Boolean,
     targetColumn: String = null): Field = new Field(id, originId, name, dataType, isConstraint, targetColumn)
 }
-
-class ScriptParams private(
-    cParamName: String,
-    cParamValue: String){
-  private var params = immutable.Map[String, String](cParamName -> cParamValue)
-  def addParam(paramName: String, paramValue: String): this.type = {
-    params += (paramName -> paramValue)
-    this
-  }
-}
-object ScriptParams{
-  def addParam(paramName: String, paramValue: String): ScriptParams = new ScriptParams(paramName, paramValue)
-}
-
-class SourceTarget(val source: String, val target: String)
-object SourceTarget{
-  def apply(source: String, target: String): SourceTarget = new SourceTarget(source, target)
-}

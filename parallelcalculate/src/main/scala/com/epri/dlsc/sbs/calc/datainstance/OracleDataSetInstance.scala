@@ -1,4 +1,4 @@
-package com.epri.dlsc.sbs.calc.datasource
+package com.epri.dlsc.sbs.calc.datainstance
 
 import java.util.Properties
 
@@ -7,23 +7,21 @@ import com.epri.dlsc.sbs.calc.config.Configuration
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 
-class OracleDataSource(
-     val dataSetId: String,
-     val dataRDD: DataFrame,
-     val constraintFieldNames: Seq[String])
+class OracleDataSetInstance(
+     val dataSet: DataSet,
+     val dataRDD: DataFrame)
 object OracleDataSourceRDD{
   def apply(
-     dataSetId: String,
-     dataRDD: DataFrame,
-     constraintFieldNames: Seq[String]): OracleDataSource =
-    new OracleDataSource(dataSetId, dataRDD, constraintFieldNames)
+     dataSet: DataSet,
+     dataRDD: DataFrame): OracleDataSetInstance =
+    new OracleDataSetInstance(dataSet, dataRDD)
 }
 
 class OracleDataSourceLoader(
      sparkSession: SparkSession,
      dataSet: DataSet) {
 
-  def load: OracleDataSource = {
+  def load: OracleDataSetInstance = {
     val sql = dataSet.script
     if (sql == null) throw new RuntimeException(s"数据集[${dataSet.name}]没定义数据源脚本语句")
     val dbConn = new Properties()
@@ -34,8 +32,6 @@ class OracleDataSourceLoader(
       s"($sql)",
       dbConn)
 
-
-
   }
 }
 object OracleDataSourceLoader{
@@ -43,6 +39,8 @@ object OracleDataSourceLoader{
     sparkSession: SparkSession,
     dataSet: DataSet): OracleDataSourceLoader =
     new OracleDataSourceLoader(sparkSession, dataSet)
+
+
 }
 
 
