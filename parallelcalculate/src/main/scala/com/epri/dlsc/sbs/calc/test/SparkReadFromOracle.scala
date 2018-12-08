@@ -1,8 +1,11 @@
 package com.epri.dlsc.sbs.calc.test
 
-import java.util.Properties
+import java.sql.Timestamp
+import java.text.SimpleDateFormat
+import java.time.{LocalDateTime, ZoneId}
+import java.time.format.DateTimeFormatter
+import java.util.{Properties, UUID}
 
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 
 
@@ -65,10 +68,42 @@ object SparkReadFromOracle {
     import org.apache.spark.sql.functions._
 
 
-    val result = dataFrame2.join(dataFrame, Array("MARKET_ID", "SBS_UNIT_ID"),"left_outer")
-        .groupBy(dataFrame2("MARKET_ID"), dataFrame2("MKT_MONTH"), dataFrame2("SBS_UNIT_ID"))
-        .agg(sum($"T_ENERGY"),sum($"ENERGY_T"))
-    result.cache.show()
+//    val result = dataFrame2.join(dataFrame, Array("MARKET_ID", "SBS_UNIT_ID"),"left_outer")
+//        .groupBy(dataFrame2("MARKET_ID"), dataFrame2("MKT_MONTH"), dataFrame2("SBS_UNIT_ID"))
+//        .agg(sum(dataFrame2("T_ENERGY")),sum(dataFrame("ENERGY_T")))
+//    result.cache.show()
+
+    val fields = dataFrame.schema.fields
+    dataFrame.foreachPartition(partition => {
+      val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+      val rowValues = partition.map(row=>{
+        fields.map(field => {
+          field.dataType.typeName match {
+            case "binary" => UUID.randomUUID().toString.replaceAll("-", "")
+            case "string" => row.getAs[String](field.name)
+            case "timestamp" => {
+              val timeValue = row.getAs[java.sql.Timestamp](field.name)
+              if(timeValue == null) null else{
+                val localDateTime = LocalDateTime.ofInstant(timeValue.toInstant, ZoneId.systemDefault)
+                dateTimeFormatter.format(localDateTime)
+              }
+            }
+            case x if x.indexOf("decimal") != -1 =>{
+              val decimalValue = row.getAs[java.math.BigDecimal](field.name)
+              if(decimalValue == null) null else decimalValue.toString
+            }
+          }
+        })
+      })
+      rowValues.foreach(x=>{
+        x.foreach(y=>{
+          print(y)
+          print("\t")
+        })
+        println()
+      })
+
+    })
 
 //    dataFrame.
 

@@ -1,14 +1,14 @@
 package com.epri.dlsc.sbs.calc.formula
 
+
 import scala.collection.mutable
 
 class Formula(
        val id: String,
        val name: String,
        val calcDataSetId: String,
-       val filters: Map[String, String] = Map[String, String](),
-       val formulaItems: Seq[FormulaItem] = List[FormulaItem]()
-             ) extends Serializable {
+       val filters: Map[String, String],
+       val formulaItems: Seq[FormulaItem]) extends Serializable {
   val formulaItemsMap: mutable.HashMap[String, FormulaItem] = mutable.HashMap[String, FormulaItem]()
 
   def formulaItem(id: String): FormulaItem = {
@@ -29,13 +29,17 @@ class Formula(
 }
 object Formula {
   def apply(
-      formulaId: String,
-      formulaName: String,
-      calcDataSetId: String): Formula = new Formula(formulaId, formulaName, calcDataSetId)
+      id: String,
+      name: String,
+      calcDataSetId: String,
+      filters: Map[String, String] = Map[String, String](),
+      formulaItems: Seq[FormulaItem] = List[FormulaItem]()): Formula
+  = new Formula(id, name, calcDataSetId, filters, formulaItems)
 }
 
 //子公式
 class FormulaItem(
+      val superId: String,
       val id: String,
       val field: String,
       val fieldName: String,
@@ -44,10 +48,17 @@ class FormulaItem(
 
 object FormulaItem {
   def apply(
+      superId: String,
       id: String,
       field: String,
       fieldName: String,
       formulaContent: String,
       formulaText: String): FormulaItem =
-    new FormulaItem(id, field, fieldName, formulaContent, formulaText)
+    new FormulaItem(superId, id, field, fieldName, formulaContent, formulaText)
 }
+
+class CalcuateItemExpression(
+      val name: String,
+      val dataSetId: String,
+      val filter: Map[String, String],
+      val calculateField: String)

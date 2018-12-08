@@ -1,18 +1,21 @@
 package com.epri.dlsc.sbs.calc.config
 
+import com.alibaba.fastjson.JSON
 import com.epri.dlsc.sbs.calc.DataSet.ScriptParamExpression.ScriptParamExpressionParser
 import com.epri.dlsc.sbs.calc.DataSet.{DataSet, Field, PersistTable, ScriptParamExpression}
 import com.epri.dlsc.sbs.calc.dao.Dao
+import com.epri.dlsc.sbs.calc.formula.{Formula, FormulaItem}
+import com.epri.dlsc.sbs.calc.service.{ScriptParams, SourceTarget}
 
-import scala.collection.mutable
+import scala.collection.{JavaConverters, immutable, mutable}
 
 
 object Configuration {
   private val cfg = new java.util.Properties()
   cfg.load(Configuration.getClass.getClassLoader.getResourceAsStream("db-authentication.properties"))
-  val url = cfg.getProperty("url")
-  val user = cfg.getProperty("user")
-  val pwd = cfg.getProperty("password")
+  val url: String = cfg.getProperty("url")
+  val user: String = cfg.getProperty("user")
+  val pwd: String = cfg.getProperty("password")
 
   /**
     *
@@ -25,17 +28,14 @@ object Configuration {
     */
   def queryDataSets(
       marketId: String,
-      source: String,
-      result: String,
-      scriptParams: Map[String, String],
+      sourceTarget: SourceTarget,
+      scriptParams: ScriptParams,
       dataSetIDs: Seq[String]): Seq[DataSet] = {
     val dataSetIdString =
       if(dataSetIDs == null || dataSetIDs.size < 1){
         null
-      }else if(dataSetIDs.size > 1){
-        dataSetIDs.reduce("'" + _ + "'" + "," + "'" + _ + "'")
       }else{
-        "'" + dataSetIDs + "'"
+        dataSetIDs.map("'"+_+"'").mkString(",")
       }
     val dataSetIdCondition = if(dataSetIdString == null) "=0" else s"IN ($dataSetIdString)"
     //数据集基本信息
@@ -48,7 +48,7 @@ object Configuration {
         |AND D.MARKET_ID = ?
         |AND S.SOURCE = ? AND D.ID $dataSetIdCondition
       """.stripMargin
-    val baseInfoList = Dao.queryForListWithSql(baseInfoSql, Array(marketId, source))
+    val baseInfoList = Dao.queryForListWithSql(baseInfoSql, Array(marketId, sourceTarget.source))
     //数据集字段信息
     val fieldInfoSql =
       s"""
@@ -73,9 +73,9 @@ object Configuration {
         |AND F.CUSTOM_COL = T.COL_ID(+)
         |AND F.DATASET_ID $dataSetIdCondition
       """.stripMargin
-    val fieldInfoList = Dao.queryForListWithSql(fieldInfoSql, Array(result))
+    val fieldInfoList = Dao.queryForListWithSql(fieldInfoSql, Array(sourceTarget.target))
 
-    var fieldMap = mutable.Map[String, mutable.ListBuffer[mutable.Map[String, _]]]()
+    val fieldMap = mutable.Map[String, mutable.ListBuffer[mutable.Map[String, _]]]()
     fieldInfoList.foreach(x => {
       val dataSetId = x("DATASET_ID").toString
       if(fieldMap.contains(dataSetId)){
@@ -93,7 +93,7 @@ object Configuration {
         val clobSql = info("SQL").asInstanceOf[oracle.sql.CLOB]
         clobSql.getSubString(1, clobSql.length().toInt)
       }
-      val executeSql = replaceSqlParameters(sql, scriptParams)
+      val executeSql = replaceSqlParameters(sql, scriptParams.toMap)
       val fields = if(fieldMap.get(dataSetId).isEmpty) List() else fieldMap(dataSetId)
       val targetTableName = if(fields.nonEmpty) fields.head("SAVE_TABLE_NAME").toString else null
       val primaryKey = if(fields.nonEmpty) fields.head("PRIMARY_KEY_COL_NAME").toString else null
@@ -109,7 +109,107 @@ object Configuration {
       DataSet(dataSetId, dataSetName, executeSql, fieldList, PersistTable(targetTableName, primaryKey))
     })
   }
-  def replaceSqlParameters(sql: String, scriptParams: Map[String, String]): String = {
+
+
+  def queryFormuals(marketId: String, formulaIds: Seq[String]): Seq[Formula] = {
+
+    val formulaIdString =
+      if(formulaIds == null || formulaIds.size < 1){
+        null
+      }else{
+        formulaIds.map("'"+_+"'").mkString(",")
+      }
+    val formulaIdCondition = if(formulaIdString == null) "=0" else s"IN ($formulaIdString)"
+
+    val mainFormulaSql =
+      s"""
+        |SELECT ID,FORMULA_NAME,RESULT_DATASET_ID,FILTER
+        |FROM SE_UPG_FORMULA_DEFINE
+        |WHERE MARKET_ID = ?
+        |AND IS_DELETE = 0
+        |AND ID $formulaIdCondition
+        |ORDER BY CAL_ORDER
+      """.stripMargin
+    val mainFormulaList = Dao.queryForListWithSql(mainFormulaSql, Array(marketId))
+
+    val formulaItemSql =
+      s"""
+        |SELECT ID,
+        |FORMULA_ID,
+        |CALCULATE_FIELD,
+        |CALCULATE_FIELD_NAME,
+        |FORMULA_CONTENT,
+        |FORMULA_TEXT
+        |FROM SE_UPG_FORMULA_ITEM
+        |WHERE FORMULA_ID $formulaIdCondition
+        |ORDER BY CAL_ORDER
+      """.stripMargin
+    val formulaItemList = Dao.queryForListWithSql(formulaItemSql)
+    val formulaItemsMap = mutable.HashMap[String, mutable.ListBuffer[FormulaItem]]()
+    formulaItemList.map(formulaItem => {
+      val superId = formulaItem("FORMULA_ID").toString
+      val id = formulaItem("ID").toString
+      val field = formulaItem("CALCULATE_FIELD").toString
+      val fieldName = formulaItem("CALCULATE_FIELD_NAME").toString
+
+      val FORMULA_CONTENT = formulaItem("FORMULA_CONTENT")
+      val formulaContentClob: oracle.sql.CLOB = if(FORMULA_CONTENT != null){
+        FORMULA_CONTENT.asInstanceOf[oracle.sql.CLOB]
+      }else{
+        null
+      }
+      val formulaContent = if(formulaContentClob != null){
+        formulaContentClob.getSubString(1, formulaContentClob.length().toInt)
+      }else{
+        null
+      }
+      val FORMULA_TEXT = formulaItem("FORMULA_TEXT")
+      val formulaTextClob: oracle.sql.CLOB = if(FORMULA_TEXT != null){
+        FORMULA_TEXT.asInstanceOf[oracle.sql.CLOB]
+      }else{
+        null
+      }
+      val formulaText = if(formulaTextClob != null){
+        formulaTextClob.getSubString(1, formulaTextClob.length().toInt)
+      }else{
+        null
+      }
+      FormulaItem(superId, id, field, fieldName, formulaContent, formulaText)
+    }).foreach(formulaItem => {
+      if(formulaItemsMap.contains(formulaItem.superId)){
+        formulaItemsMap(formulaItem.superId) += formulaItem
+      }else{
+        formulaItemsMap += (formulaItem.superId -> mutable.ListBuffer[FormulaItem](formulaItem))
+      }
+    })
+    mainFormulaList.map(mainFormula => {
+      val id = mainFormula("ID").toString
+      val name =  mainFormula("FORMULA_NAME").toString
+      val RESULT_DATASET_ID = mainFormula("RESULT_DATASET_ID")
+      val resultDataSetId: String = if(RESULT_DATASET_ID != null){
+        RESULT_DATASET_ID.toString
+      }else{
+        null
+      }
+      val FILTER = mainFormula("FILTER")
+      val filter: Map[String, String] = if(FILTER != null){
+        JavaConverters.mapAsScalaMapConverter(JSON.parseObject(FILTER.toString, new java.util.HashMap[String, String]().getClass)).asScala.toMap
+      }else{
+        Map[String, String]()
+      }
+      val thisFormulaItems = formulaItemsMap.getOrElse(id, null)
+      Formula(id, name,resultDataSetId, filter, thisFormulaItems)
+    })
+  }
+
+
+  /**
+    * 数据集脚本参数替换
+    * @param sql 脚本
+    * @param scriptParams 参数
+    * @return
+    */
+  private def replaceSqlParameters(sql: String, scriptParams: Map[String, String]): String = {
     var returnSql: String = sql
     val paramExpressions = ScriptParamExpressionParser.getExpressions(sql)
     if(paramExpressions.nonEmpty && (scriptParams == null || scriptParams.isEmpty)) throw new RuntimeException("入参[scriptParams]不可为空！")
@@ -121,4 +221,6 @@ object Configuration {
     })
     returnSql
   }
+
+
 }

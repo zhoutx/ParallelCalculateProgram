@@ -1,6 +1,6 @@
 package com.epri.dlsc.sbs.calc.DataSet
 
-import scala.collection.immutable
+import scala.collection.{immutable, mutable}
 
 
 /**
@@ -20,6 +20,21 @@ class DataSet(
     val targetTable: PersistTable
              ) extends Serializable {
   val constraintFields: Seq[Field] = fields.filter(_.isConstraint)
+  val sqlColumName_Field_Map = mutable.HashMap[String, String]()
+  def getFieldName(sqlColumnName: String): String = {
+    if(sqlColumName_Field_Map.contains(sqlColumnName)){
+      sqlColumName_Field_Map(sqlColumnName)
+    }else{
+      val field = fields.filter(field => field.originId.equals(sqlColumnName))
+      if(field != null && field.size == 1){
+        val fieldName = field.head.name
+        sqlColumName_Field_Map += (sqlColumnName -> fieldName)
+        fieldName
+      }else{
+        null
+      }
+    }
+  }
 }
 object DataSet {
   def apply(
@@ -37,7 +52,9 @@ object DataSet {
   */
 class PersistTable(
   val tableName: String,
-  val primaryKey: String)
+  val primaryKey: String){
+  def isEmpty: Boolean = tableName == null || primaryKey == null
+}
 object PersistTable{
   def apply(
     tableName: String,
@@ -59,12 +76,12 @@ class Field(
     val name: String,
     val dataType: Int,
     val isConstraint: Boolean,
-    val targetColumn: String = null) extends Serializable {
-}
+    val targetColumn: String = null) extends Serializable
 object Field {
   val STRING: Int = 1
   val NUMBER: Int = 2
   val DATE: Int = 3
+  val _OLD_ID_ : String = "OLD_ID"
   def apply(
     id: String,
     originId: String,
@@ -72,4 +89,23 @@ object Field {
     dataType: Int,
     isConstraint: Boolean,
     targetColumn: String = null): Field = new Field(id, originId, name, dataType, isConstraint, targetColumn)
+}
+
+class DataSetExpression(
+       val dataSetId: String,
+       val valueField: String,
+       private val pwhere: Seq[String],
+       private val pfilter:Map[String, String] = Map[String, String]()
+                       ) {
+  private var _MATCHID: String = _
+  val MATCH_IDENTIFIER: String = if(_MATCHID == null){
+    _MATCHID = dataSetId + "_" +pwhere.sorted.mkString("_")
+    if(pfilter.nonEmpty){
+      _MATCHID += pfilter.keySet.toList.sorted.map(key => key+"="+pfilter(key)).mkString("_")
+    }
+    _MATCHID
+  }else{
+    _MATCHID
+  }
+
 }
