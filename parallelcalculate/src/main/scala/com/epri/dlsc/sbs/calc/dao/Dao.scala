@@ -6,7 +6,7 @@ import com.epri.dlsc.sbs.calc.config.Configuration.{pwd, url, user}
 
 import scala.collection.mutable
 
-object Dao {
+private[calc] object Dao {
 
   private var connection = java.sql.DriverManager.getConnection(url, user, pwd)
 

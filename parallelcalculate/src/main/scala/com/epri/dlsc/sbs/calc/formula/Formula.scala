@@ -16,7 +16,7 @@ class Formula(
       null
     }else{
       if(formulaItemsMap.isEmpty){
-        formulaItems.foreach(item => formulaItemsMap.put(item.id, item))
+        formulaItemsMap ++= formulaItems.map(item => item.id -> item)
       }
       val item = formulaItemsMap.get(id)
       if(item.isEmpty){
@@ -56,9 +56,3 @@ object FormulaItem {
       formulaText: String): FormulaItem =
     new FormulaItem(superId, id, field, fieldName, formulaContent, formulaText)
 }
-
-class CalcuateItemExpression(
-      val name: String,
-      val dataSetId: String,
-      val filter: Map[String, String],
-      val calculateField: String)

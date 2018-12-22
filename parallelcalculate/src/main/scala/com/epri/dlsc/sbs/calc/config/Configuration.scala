@@ -7,10 +7,10 @@ import com.epri.dlsc.sbs.calc.dao.Dao
 import com.epri.dlsc.sbs.calc.formula.{Formula, FormulaItem}
 import com.epri.dlsc.sbs.calc.service.{ScriptParams, SourceTarget}
 
-import scala.collection.{JavaConverters, immutable, mutable}
+import scala.collection.{JavaConverters, mutable}
 
 
-object Configuration {
+private[calc] object Configuration {
   private val cfg = new java.util.Properties()
   cfg.load(Configuration.getClass.getClassLoader.getResourceAsStream("db-authentication.properties"))
   val url: String = cfg.getProperty("url")
@@ -95,8 +95,15 @@ object Configuration {
       }
       val executeSql = replaceSqlParameters(sql, scriptParams.toMap)
       val fields = if(fieldMap.get(dataSetId).isEmpty) List() else fieldMap(dataSetId)
-      val targetTableName = if(fields.nonEmpty) fields.head("SAVE_TABLE_NAME").toString else null
-      val primaryKey = if(fields.nonEmpty) fields.head("PRIMARY_KEY_COL_NAME").toString else null
+      val targetTableName: String = if(fields.nonEmpty) {
+        val tableName = fields.head("SAVE_TABLE_NAME")
+        if(tableName == null) null else tableName.toString
+      } else null
+      var primaryKey: String = if(fields.nonEmpty){
+        val primaryKey = fields.head("PRIMARY_KEY_COL_NAME")
+        if(primaryKey == null) null else primaryKey.toString
+      } else null
+      primaryKey = if(primaryKey == null) null else primaryKey.toString
       val fieldList = fields.map(field => {
         val id = field("ID").toString
         val originId = field("ORIGIN_ID").toString
@@ -106,7 +113,11 @@ object Configuration {
         val targetColumn = if(field("TARGET_COL_ID") == null) null else field("TARGET_COL_ID").toString
         Field(id, originId, name, dataType, isConstraint, targetColumn)
       })
-      DataSet(dataSetId, dataSetName, executeSql, fieldList, PersistTable(targetTableName, primaryKey))
+      DataSet(dataSetId,
+        dataSetName,
+        executeSql,
+        fieldList,
+        PersistTable(targetTableName, primaryKey))
     })
   }
 

@@ -1,6 +1,6 @@
 package com.epri.dlsc.sbs.calc.DataSet
 
-import scala.collection.{immutable, mutable}
+import scala.collection.mutable
 
 
 /**
@@ -12,7 +12,7 @@ import scala.collection.{immutable, mutable}
   * @param fields 字段
   * @param targetTable 目标映射
   */
-class DataSet(
+private[calc] class DataSet(
     val id: String,
     val name: String,
     val script: String,
@@ -20,23 +20,23 @@ class DataSet(
     val targetTable: PersistTable
              ) extends Serializable {
   val constraintFields: Seq[Field] = fields.filter(_.isConstraint)
-  val sqlColumName_Field_Map = mutable.HashMap[String, String]()
-  def getFieldName(sqlColumnName: String): String = {
-    if(sqlColumName_Field_Map.contains(sqlColumnName)){
-      sqlColumName_Field_Map(sqlColumnName)
+  val sqlColumnName_Field_Map: mutable.HashMap[String, Field] = mutable.HashMap[String, Field]()
+  def getField(sqlColumnName: String): Field = {
+    if(sqlColumnName_Field_Map.contains(sqlColumnName)){
+      sqlColumnName_Field_Map(sqlColumnName)
     }else{
       val field = fields.filter(field => field.originId.equals(sqlColumnName))
       if(field != null && field.size == 1){
-        val fieldName = field.head.name
-        sqlColumName_Field_Map += (sqlColumnName -> fieldName)
-        fieldName
+        val requireField = field.head
+        sqlColumnName_Field_Map += (sqlColumnName -> requireField)
+        requireField
       }else{
         null
       }
     }
   }
 }
-object DataSet {
+private[calc] object DataSet {
   def apply(
     id: String,
     name: String,
@@ -50,12 +50,12 @@ object DataSet {
   * @param tableName  目标表名
   * @param primaryKey 目标表主键
   */
-class PersistTable(
+private[calc] class PersistTable(
   val tableName: String,
-  val primaryKey: String){
+  val primaryKey: String) extends Serializable{
   def isEmpty: Boolean = tableName == null || primaryKey == null
 }
-object PersistTable{
+private[calc] object PersistTable{
   def apply(
     tableName: String,
     primaryKey: String): PersistTable = new PersistTable(tableName, primaryKey)
@@ -70,14 +70,14 @@ object PersistTable{
   * @param isConstraint 是否约束字段
   * @param targetColumn 所映射的目标表列名
   */
-class Field(
+private[calc] class Field(
     val id: String,
     val originId: String,
     val name: String,
     val dataType: Int,
     val isConstraint: Boolean,
     val targetColumn: String = null) extends Serializable
-object Field {
+private[calc] object Field {
   val STRING: Int = 1
   val NUMBER: Int = 2
   val DATE: Int = 3
@@ -89,23 +89,4 @@ object Field {
     dataType: Int,
     isConstraint: Boolean,
     targetColumn: String = null): Field = new Field(id, originId, name, dataType, isConstraint, targetColumn)
-}
-
-class DataSetExpression(
-       val dataSetId: String,
-       val valueField: String,
-       private val pwhere: Seq[String],
-       private val pfilter:Map[String, String] = Map[String, String]()
-                       ) {
-  private var _MATCHID: String = _
-  val MATCH_IDENTIFIER: String = if(_MATCHID == null){
-    _MATCHID = dataSetId + "_" +pwhere.sorted.mkString("_")
-    if(pfilter.nonEmpty){
-      _MATCHID += pfilter.keySet.toList.sorted.map(key => key+"="+pfilter(key)).mkString("_")
-    }
-    _MATCHID
-  }else{
-    _MATCHID
-  }
-
 }
