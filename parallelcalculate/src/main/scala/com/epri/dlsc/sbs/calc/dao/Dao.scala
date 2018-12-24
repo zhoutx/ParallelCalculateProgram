@@ -78,8 +78,6 @@ private[calc] object Dao {
       if(queryResultSet != null) queryResultSet.close()
       if(statement != null) statement.close()
     }
-
-
   }
 
   def queryForIntWithSql(
@@ -103,5 +101,4 @@ private[calc] object Dao {
       if(statement != null) statement.close()
     }
   }
-
 }

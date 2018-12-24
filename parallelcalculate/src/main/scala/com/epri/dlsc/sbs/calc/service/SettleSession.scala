@@ -2,11 +2,11 @@ package com.epri.dlsc.sbs.calc.service
 
 
 import java.util
-import java.util.UUID
 import java.util.regex.Pattern
 
 import com.epri.dlsc.sbs.calc.DataSet._
 import com.epri.dlsc.sbs.calc.config.Configuration
+import com.epri.dlsc.sbs.calc.dao.OracleStorager
 import com.epri.dlsc.sbs.calc.datainstance.{DataSetInstance, OracleDataSet}
 import com.epri.dlsc.sbs.calc.formula.Formula
 import com.sgcc.dlsc.sbs.functions.`type`.DataSetRow
@@ -17,7 +17,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
 
 import scala.collection.JavaConversions.seqAsJavaList
-import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import scala.collection.{immutable, mutable}
 
@@ -170,9 +170,7 @@ class SettleSession private{
       })
     })
     //数据存储
-    requirePersistDF.list().foreach(_.show())
-
-
+    requirePersistDF.listForKeyValue.foreach(OracleStorager.save(dataSetConfig, dataSetBroadcastVar, _))
     true
   }
   //不包含数据集的公式计算
@@ -507,13 +505,12 @@ class SettleSession private{
      val formulaIds: Seq[String])
 
   private var config: Config = _
-  private val sparkSession: SparkSession = SparkSession.builder().config("spark.debug.maxToStringFields", 100).appName("Settle System").master("local[10]").getOrCreate()
+  private val sparkSession: SparkSession = SparkSession.builder().config("spark.debug.maxToStringFields", 100).appName("SettleCalculate").getOrCreate()
   private val dataSetInstance = new DataSetInstance()
   private val requirePersistDF = new RequirePersistDF()
   private val dataSetConfig = new DataSetConfig()
 
   private var dataSetBroadcastVar: Broadcast[mutable.HashMap[String, DataSet]] = _
-  private val formulaConfigCollection= mutable.HashMap[String, Formula]()
 
   private class DataSetConfig{
     private val dataSetConfigCollection = mutable.HashMap[String, DataSet]()
@@ -523,7 +520,6 @@ class SettleSession private{
       require(data != null, s"待计算的数据集【$dataSetId】加载失败")
       data
     }
-
   }
 
   private class RequirePersistDF{
@@ -536,6 +532,7 @@ class SettleSession private{
       this
     }
     def list(): Seq[DataFrame] = persistDF.values.toList
+    def listForKeyValue:List[(String, DataFrame)] = persistDF.toList
   }
 
   class ScopeDataCache{

@@ -40,7 +40,7 @@ object ScalaTest {
         .add("starttime", "2018-01-15 00:00:00")
         .add("endtime", "2018-01-15 23:45:00")
     SettleSession.getOrCreate
-    .config("95518", SourceTarget("3", "3"),  params,  Array("33786f06454898b13f57389387afbb1"))
+    .config("95518", SourceTarget("3", "3"),  params,  ids2)
       .submit()
 
     /**
